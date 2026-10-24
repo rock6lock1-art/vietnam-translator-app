@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="日本語をベトナム語に翻訳するシンプルな翻訳アプリです。"
+    />
+    <title>ことばの橋 | 日本語・ベトナム語翻訳</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          "Noto Sans JP", "Noto Sans", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        color: #172b2a;
+        background: #f3f7f4;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .page {
+        width: min(100% - 32px, 760px);
+        margin: 0 auto;
+        padding: 64px 0 40px;
+      }
+
+      header {
+        margin-bottom: 32px;
+        text-align: center;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #187b64;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 5vw, 2.5rem);
+        letter-spacing: 0.02em;
+      }
+
+      .intro {
+        margin: 12px 0 0;
+        color: #61716d;
+      }
+
+      .translator {
+        overflow: hidden;
+        border: 1px solid #e1e9e4;
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 18px 50px rgb(31 65 52 / 8%);
+      }
+
+      .language-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 18px 24px;
+        border-bottom: 1px solid #edf1ee;
+        color: #354d47;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .swap-button,
+      .tool-button {
+        min-height: 34px;
+        padding: 0 10px;
+        border: 1px solid #dce6e0;
+        background: white;
+        color: #354d47;
+        font-size: 0.78rem;
+      }
+
+      .swap-button:hover:not(:disabled),
+      .tool-button:hover:not(:disabled) {
+        background: #f1f6f3;
+      }
+
+      .tool-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .arrow {
+        color: #18846b;
+      }
+
+      .panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .panel {
+        min-width: 0;
+        padding: 22px 24px 18px;
+      }
+
+      .panel + .panel {
+        border-left: 1px solid #edf1ee;
+        background: #fbfcfb;
+      }
+
+      .panel-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        color: #61716d;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .count {
+        font-weight: 400;
+      }
+
+      .panel-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      textarea,
+      .result {
+        display: block;
+        width: 100%;
+        min-height: 210px;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #172b2a;
+        font: inherit;
+        font-size: 1.08rem;
+        line-height: 1.75;
+        overflow-wrap: anywhere;
+        resize: vertical;
+      }
+
+      textarea::placeholder,
+      .result.placeholder {
+        color: #a5b0ac;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 24px;
+        border-top: 1px solid #edf1ee;
+      }
+
+      .hint {
+        color: #73817d;
+        font-size: 0.78rem;
+      }
+
+      button {
+        min-height: 44px;
+        padding: 0 20px;
+        border: 0;
+        border-radius: 10px;
+        background: #147b64;
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        transition: background 120ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        background: #106650;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      .copy-button {
+        min-height: 32px;
+        padding: 0 10px;
+        border: 1px solid #dce6e0;
+        background: white;
+        color: #354d47;
+        font-size: 0.78rem;
+      }
+
+      .copy-button:hover:not(:disabled) {
+        background: #f1f6f3;
+      }
+
+      .status {
+        min-height: 1.5em;
+        margin: 14px 2px 0;
+        color: #61716d;
+        font-size: 0.88rem;
+      }
+
+      .status.error {
+        color: #a93232;
+      }
+
+      .privacy-note {
+        margin: 24px 0 0;
+        color: #73817d;
+        font-size: 0.8rem;
+        line-height: 1.7;
+        text-align: center;
+      }
+
+      @media (max-width: 600px) {
+        .page {
+          padding-top: 40px;
+        }
+
+        .panels {
+          grid-template-columns: 1fr;
+        }
+
+        .panel {
+          padding: 18px 20px 14px;
+        }
+
+        .panel + .panel {
+          border-top: 1px solid #edf1ee;
+          border-left: 0;
+        }
+
+        .language-bar {
+          gap: 8px;
+          padding: 14px 10px;
+          font-size: 0.85rem;
+        }
+
+        .swap-button {
+          padding: 0 8px;
+        }
+
+        textarea,
+        .result {
+          min-height: 140px;
+        }
+
+        .actions {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 16px 20px;
+        }
+
+        .actions button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <p class="eyebrow" id="eyebrow">JAPANESE → VIETNAMESE</p>
+        <h1>ことばの橋</h1>
+        <p class="intro" id="intro">日本語とベトナム語を翻訳します。</p>
+      </header>
+
+      <section class="translator" aria-label="翻訳">
+        <div class="language-bar" aria-label="翻訳する言語">
+          <span id="source-language">日本語</span>
+          <span class="arrow" aria-hidden="true">→</span>
+          <span id="target-language">ベトナム語</span>
+          <button class="swap-button" id="swap" type="button" aria-label="翻訳方向を入れ替える" title="翻訳方向を入れ替える">
+            ⇄
+          </button>
+        </div>
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-heading">
+              <label id="source-heading" for="source">日本語</label>
+              <span class="panel-tools">
+                <button class="tool-button" id="listen" type="button" title="音声で入力" aria-label="音声で入力">
+                  音声入力
+                </button>
+                <span class="count" id="count">0 / 5000</span>
+              </span>
+            </div>
+            <textarea
+              id="source"
+              maxlength="5000"
+              placeholder="翻訳したい文章を入力してください"
+              autocomplete="off"
+            ></textarea>
+          </div>
+          <div class="panel">
+            <div class="panel-heading">
+              <span id="target-heading">ベトナム語</span>
+              <span class="panel-tools">
+                <button class="tool-button" id="speak" type="button" title="翻訳結果を読み上げる" aria-label="翻訳結果を読み上げる" disabled>
+                  読み上げ
+                </button>
+                <button class="copy-button" id="copy" type="button" disabled>コピー</button>
+              </span>
+            </div>
+            <div class="result placeholder" id="result" aria-live="polite">
+              翻訳結果がここに表示されます
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <span class="hint">短い文章からお試しください</span>
+          <button id="translate" type="button">翻訳する</button>
+        </div>
+      </section>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <p class="privacy-note">
+        翻訳にはMyMemoryを利用します。入力した文章は翻訳のため外部サービスに送信されます。音声認識・読み上げの対応状況はブラウザによって異なります。
+      </p>
+    </main>
+
+    <script>
+      const source = document.querySelector("#source");
+      const result = document.querySelector("#result");
+      const count = document.querySelector("#count");
+      const translateButton = document.querySelector("#translate");
+      const copyButton = document.querySelector("#copy");
+      const swapButton = document.querySelector("#swap");
+      const listenButton = document.querySelector("#listen");
+      const speakButton = document.querySelector("#speak");
+      const status = document.querySelector("#status");
+      const sourceLanguageLabel = document.querySelector("#source-language");
+      const targetLanguageLabel = document.querySelector("#target-language");
+      const sourceHeading = document.querySelector("#source-heading");
+      const targetHeading = document.querySelector("#target-heading");
+      const eyebrow = document.querySelector("#eyebrow");
+      const placeholder = "翻訳結果がここに表示されます";
+      const languages = {
+        ja: { label: "日本語", locale: "ja-JP", english: "JAPANESE" },
+        vi: { label: "ベトナム語", locale: "vi-VN", english: "VIETNAMESE" },
+      };
+      let sourceCode = "ja";
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+
+      if (!SpeechRecognition) {
+        listenButton.disabled = true;
+        listenButton.title = "このブラウザは音声認識に対応していません";
+      } else {
+        recognition = new SpeechRecognition();
+        recognition.interimResults = true;
+        recognition.continuous = false;
+        recognition.onstart = () => {
+          listenButton.textContent = "認識中…";
+          listenButton.disabled = true;
+          status.textContent = "話してください。音声をテキストに変換します。";
+          status.classList.remove("error");
+        };
+        recognition.onresult = (event) => {
+          const transcript = Array.from(event.results)
+            .map((item) => item[0].transcript)
+            .join("");
+          source.value = transcript.slice(0, 5000);
+          count.textContent = `${source.value.length} / 5000`;
+        };
+        recognition.onerror = (event) => {
+          const message = event.error === "not-allowed"
+            ? "マイクの使用が許可されていません。ブラウザの設定をご確認ください。"
+            : "音声を認識できませんでした。もう一度お試しください。";
+          status.textContent = message;
+          status.classList.add("error");
+        };
+        recognition.onend = () => {
+          listenButton.textContent = "音声入力";
+          listenButton.disabled = false;
+        };
+      }
+
+      function updateLanguageLabels() {
+        const sourceLanguage = languages[sourceCode];
+        const targetLanguage = languages[sourceCode === "ja" ? "vi" : "ja"];
+        sourceLanguageLabel.textContent = sourceLanguage.label;
+        sourceHeading.textContent = sourceLanguage.label;
+        targetLanguageLabel.textContent = targetLanguage.label;
+        targetHeading.textContent = targetLanguage.label;
+        eyebrow.textContent = `${sourceLanguage.english} → ${targetLanguage.english}`;
+        source.placeholder = `翻訳したい${sourceLanguage.label}の文章を入力してください`;
+        if (recognition) recognition.lang = sourceLanguage.locale;
+        speakButton.title = `${targetLanguage.label}の翻訳結果を読み上げる`;
+        speakButton.setAttribute("aria-label", `${targetLanguage.label}の翻訳結果を読み上げる`);
+      }
+
+      source.addEventListener("input", () => {
+        count.textContent = `${source.value.length} / 5000`;
+      });
+
+      swapButton.addEventListener("click", () => {
+        const previousResult = result.textContent;
+        const hadResult = !result.classList.contains("placeholder");
+        result.textContent = source.value.trim() || placeholder;
+        result.classList.toggle("placeholder", !source.value.trim());
+        source.value = hadResult ? previousResult : "";
+        count.textContent = `${source.value.length} / 5000`;
+        sourceCode = sourceCode === "ja" ? "vi" : "ja";
+        updateLanguageLabels();
+        copyButton.disabled = result.classList.contains("placeholder");
+        speakButton.disabled = result.classList.contains("placeholder");
+        status.textContent = "";
+        status.classList.remove("error");
+      });
+
+      listenButton.addEventListener("click", () => {
+        if (!recognition) return;
+        recognition.lang = languages[sourceCode].locale;
+        status.classList.remove("error");
+        try {
+          recognition.start();
+        } catch {
+          status.textContent = "音声認識を開始できません。少し待ってから再度お試しください。";
+          status.classList.add("error");
+        }
+      });
+
+      speakButton.addEventListener("click", () => {
+        if (!("speechSynthesis" in window)) {
+          status.textContent = "このブラウザは音声読み上げに対応していません。";
+          status.classList.add("error");
+          return;
+        }
+        const utterance = new SpeechSynthesisUtterance(result.textContent);
+        utterance.lang = languages[sourceCode === "ja" ? "vi" : "ja"].locale;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        status.textContent = "翻訳結果を読み上げています。";
+        status.classList.remove("error");
+      });
+
+      translateButton.addEventListener("click", async () => {
+        const text = source.value.trim();
+        if (!text) {
+          status.textContent = "翻訳する文章を入力してください。";
+          status.classList.add("error");
+          source.focus();
+          return;
+        }
+
+        translateButton.disabled = true;
+        translateButton.textContent = "翻訳中…";
+        status.textContent = "";
+        status.classList.remove("error");
+        copyButton.disabled = true;
+
+        try {
+          const params = new URLSearchParams({
+            q: text,
+            langpair: `${sourceCode}|${sourceCode === "ja" ? "vi" : "ja"}`,
+          });
+          const response = await fetch(
+            `https://api.mymemory.translated.net/get?${params}`,
+          );
+          if (!response.ok) {
+            throw new Error("翻訳サービスに接続できませんでした。");
+          }
+
+          const data = await response.json();
+          if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
+            throw new Error(
+              data.responseDetails || "翻訳できませんでした。時間をおいて再度お試しください。",
+            );
+          }
+
+          result.textContent = data.responseData.translatedText;
+          result.classList.remove("placeholder");
+          copyButton.disabled = false;
+          speakButton.disabled = false;
+          status.textContent = "翻訳しました。";
+          status.classList.remove("error");
+        } catch (error) {
+          status.textContent =
+            error instanceof Error
+              ? error.message
+              : "翻訳中に問題が発生しました。";
+          status.classList.add("error");
+          if (result.textContent === placeholder) {
+            result.classList.add("placeholder");
+          }
+        } finally {
+          translateButton.disabled = false;
+          translateButton.textContent = "翻訳する";
+        }
+      });
+
+      updateLanguageLabels();
+
+      copyButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(result.textContent);
+          status.textContent = "翻訳結果をコピーしました。";
+          status.classList.remove("error");
+        } catch {
+          status.textContent = "コピーできませんでした。結果を選択してコピーしてください。";
+          status.classList.add("error");
+        }
+      });
+    </script>
+  </body>
+</html>
