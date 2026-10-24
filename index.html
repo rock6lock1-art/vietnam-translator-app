@@ -43,6 +43,36 @@
         text-align: center;
       }
 
+      .ui-language-switch {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+
+      .ui-language-switch button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid #dce6e0;
+        border-radius: 0;
+        background: white;
+        color: #354d47;
+        font-size: 0.8rem;
+      }
+
+      .ui-language-switch button:first-child {
+        border-radius: 6px 0 0 6px;
+      }
+
+      .ui-language-switch button:last-child {
+        border-radius: 0 6px 6px 0;
+      }
+
+      .ui-language-switch button[aria-pressed="true"] {
+        border-color: #147b64;
+        background: #147b64;
+        color: white;
+      }
+
       .eyebrow {
         margin: 0 0 10px;
         color: #187b64;
@@ -279,13 +309,17 @@
   <body>
     <main class="page">
       <header>
+        <div class="ui-language-switch" id="ui-language-switch" role="group" aria-label="表示言語">
+          <button class="ui-language-button" type="button" data-ui-language="ja" aria-pressed="true">日本語</button>
+          <button class="ui-language-button" type="button" data-ui-language="vi" aria-pressed="false">Tiếng Việt</button>
+        </div>
         <p class="eyebrow" id="eyebrow">JAPANESE → VIETNAMESE</p>
-        <h1>ことばの橋</h1>
+        <h1 id="app-title">ことばの橋</h1>
         <p class="intro" id="intro">日本語とベトナム語を翻訳します。</p>
       </header>
 
-      <section class="translator" aria-label="翻訳">
-        <div class="language-bar" aria-label="翻訳する言語">
+      <section class="translator" id="translator" aria-label="翻訳">
+        <div class="language-bar" id="language-bar" aria-label="翻訳する言語">
           <span id="source-language">日本語</span>
           <span class="arrow" aria-hidden="true">→</span>
           <span id="target-language">ベトナム語</span>
@@ -332,7 +366,7 @@
         </div>
       </section>
       <p class="status" id="status" role="status" aria-live="polite"></p>
-      <p class="privacy-note">
+      <p class="privacy-note" id="privacy-note">
         翻訳にはMyMemoryを利用します。入力した文章は翻訳のため外部サービスに送信されます。音声認識・読み上げの対応状況はブラウザによって異なります。
       </p>
     </main>
@@ -352,28 +386,173 @@
       const sourceHeading = document.querySelector("#source-heading");
       const targetHeading = document.querySelector("#target-heading");
       const eyebrow = document.querySelector("#eyebrow");
-      const placeholder = "翻訳結果がここに表示されます";
+      const appTitle = document.querySelector("#app-title");
+      const languageSwitch = document.querySelector("#ui-language-switch");
+      const languageButtons = document.querySelectorAll("[data-ui-language]");
+      const copy = {
+        ja: {
+          appTitle: "ことばの橋",
+          pageTitle: "ことばの橋 | 日本語・ベトナム語翻訳",
+          description: "日本語とベトナム語を翻訳するアプリです。",
+          intro: "日本語とベトナム語を翻訳します。",
+          translator: "翻訳",
+          languagePair: "翻訳する言語",
+          uiLanguage: "表示言語",
+          swap: "翻訳方向を入れ替える",
+          listen: "音声入力",
+          listening: "認識中…",
+          listenTitle: "音声で入力",
+          recognitionUnsupported: "このブラウザは音声認識に対応していません",
+          speak: "読み上げ",
+          speakTitle: "翻訳結果を読み上げる",
+          copy: "コピー",
+          sourcePlaceholder: "翻訳したい{language}の文章を入力してください",
+          resultPlaceholder: "翻訳結果がここに表示されます",
+          hint: "短い文章からお試しください",
+          translate: "翻訳する",
+          translating: "翻訳中…",
+          privacy: "翻訳にはMyMemoryを利用します。入力した文章は翻訳のため外部サービスに送信されます。音声認識・読み上げの対応状況はブラウザによって異なります。",
+          listeningPrompt: "話してください。音声をテキストに変換します。",
+          microphoneDenied: "マイクの使用が許可されていません。ブラウザの設定をご確認ください。",
+          recognitionFailed: "音声を認識できませんでした。もう一度お試しください。",
+          recognitionStartFailed: "音声認識を開始できません。少し待ってから再度お試しください。",
+          speechUnsupported: "このブラウザは音声読み上げに対応していません。",
+          speechPlaying: "翻訳結果を読み上げています。",
+          emptyInput: "翻訳する文章を入力してください。",
+          translationConnectionFailed: "翻訳サービスに接続できませんでした。",
+          translationFailed: "翻訳できませんでした。時間をおいて再度お試しください。",
+          translationProblem: "翻訳中に問題が発生しました。",
+          translated: "翻訳しました。",
+          copied: "翻訳結果をコピーしました。",
+          copyFailed: "コピーできませんでした。結果を選択してコピーしてください。",
+        },
+        vi: {
+          appTitle: "Cầu nối ngôn ngữ",
+          pageTitle: "Cầu nối ngôn ngữ | Dịch Nhật - Việt",
+          description: "Ứng dụng dịch giữa tiếng Nhật và tiếng Việt.",
+          intro: "Dịch giữa tiếng Nhật và tiếng Việt.",
+          translator: "Dịch",
+          languagePair: "Ngôn ngữ dịch",
+          uiLanguage: "Ngôn ngữ giao diện",
+          swap: "Đổi chiều dịch",
+          listen: "Nhập bằng giọng nói",
+          listening: "Đang nhận dạng…",
+          listenTitle: "Nhập bằng giọng nói",
+          recognitionUnsupported: "Trình duyệt này không hỗ trợ nhận dạng giọng nói",
+          speak: "Đọc bản dịch",
+          speakTitle: "Đọc bản dịch thành tiếng",
+          copy: "Sao chép",
+          sourcePlaceholder: "Nhập văn bản tiếng {language} cần dịch",
+          resultPlaceholder: "Bản dịch sẽ hiển thị ở đây",
+          hint: "Hãy thử với câu ngắn",
+          translate: "Dịch",
+          translating: "Đang dịch…",
+          privacy: "Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc thành tiếng tùy thuộc vào trình duyệt.",
+          listeningPrompt: "Hãy nói để chuyển giọng nói thành văn bản.",
+          microphoneDenied: "Chưa được cấp quyền sử dụng micrô. Vui lòng kiểm tra cài đặt trình duyệt.",
+          recognitionFailed: "Không nhận dạng được giọng nói. Vui lòng thử lại.",
+          recognitionStartFailed: "Không thể bắt đầu nhận dạng giọng nói. Vui lòng đợi một chút rồi thử lại.",
+          speechUnsupported: "Trình duyệt này không hỗ trợ đọc văn bản thành tiếng.",
+          speechPlaying: "Đang đọc bản dịch thành tiếng.",
+          emptyInput: "Vui lòng nhập văn bản cần dịch.",
+          translationConnectionFailed: "Không thể kết nối với dịch vụ dịch thuật.",
+          translationFailed: "Không thể dịch. Vui lòng thử lại sau.",
+          translationProblem: "Đã xảy ra lỗi trong quá trình dịch.",
+          translated: "Đã dịch xong.",
+          copied: "Đã sao chép bản dịch.",
+          copyFailed: "Không thể sao chép. Hãy chọn bản dịch rồi sao chép.",
+        },
+      };
       const languages = {
-        ja: { label: "日本語", locale: "ja-JP", english: "JAPANESE" },
-        vi: { label: "ベトナム語", locale: "vi-VN", english: "VIETNAMESE" },
+        ja: { label: { ja: "日本語", vi: "Tiếng Nhật" }, locale: "ja-JP" },
+        vi: { label: { ja: "ベトナム語", vi: "Tiếng Việt" }, locale: "vi-VN" },
       };
       let sourceCode = "ja";
+      let uiLanguage = localStorage.getItem("uiLanguage") === "vi" ? "vi" : "ja";
+      let recognitionActive = false;
+      let isTranslating = false;
+      let statusKey = "";
+      let statusIsError = false;
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       let recognition = null;
 
+      function showStatus(key = "", isError = false) {
+        statusKey = key;
+        statusIsError = isError;
+        status.textContent = key ? copy[uiLanguage][key] : "";
+        status.classList.toggle("error", isError);
+      }
+
+      function updateLanguageLabels() {
+        const sourceLanguage = languages[sourceCode];
+        const targetLanguage = languages[sourceCode === "ja" ? "vi" : "ja"];
+        const sourceLabel = sourceLanguage.label[uiLanguage];
+        const targetLabel = targetLanguage.label[uiLanguage];
+        sourceLanguageLabel.textContent = sourceLabel;
+        sourceHeading.textContent = sourceLabel;
+        targetLanguageLabel.textContent = targetLabel;
+        targetHeading.textContent = targetLabel;
+        eyebrow.textContent = `${sourceLabel} → ${targetLabel}`;
+        source.placeholder = copy[uiLanguage].sourcePlaceholder.replace("{language}", sourceLabel);
+        if (recognition) recognition.lang = sourceLanguage.locale;
+        speakButton.title = copy[uiLanguage].speakTitle;
+        speakButton.setAttribute("aria-label", copy[uiLanguage].speakTitle);
+      }
+
+      function updateUi() {
+        const strings = copy[uiLanguage];
+        document.documentElement.lang = uiLanguage;
+        document.title = strings.pageTitle;
+        document.querySelector('meta[name="description"]').content = strings.description;
+        appTitle.textContent = strings.appTitle;
+        document.querySelector("#intro").textContent = strings.intro;
+        document.querySelector("#translator").setAttribute("aria-label", strings.translator);
+        languageSwitch.setAttribute("aria-label", strings.uiLanguage);
+        document.querySelector("#language-bar").setAttribute("aria-label", strings.languagePair);
+        swapButton.title = strings.swap;
+        swapButton.setAttribute("aria-label", strings.swap);
+        listenButton.textContent = recognitionActive ? strings.listening : strings.listen;
+        listenButton.title = recognition ? strings.listenTitle : strings.recognitionUnsupported;
+        listenButton.setAttribute("aria-label", strings.listenTitle);
+        listenButton.disabled = !recognition || recognitionActive;
+        speakButton.textContent = strings.speak;
+        copyButton.textContent = strings.copy;
+        speakButton.disabled = result.classList.contains("placeholder");
+        copyButton.disabled = result.classList.contains("placeholder");
+        document.querySelector(".hint").textContent = strings.hint;
+        translateButton.textContent = isTranslating ? strings.translating : strings.translate;
+        document.querySelector("#privacy-note").textContent = strings.privacy;
+        if (result.classList.contains("placeholder")) {
+          result.textContent = strings.resultPlaceholder;
+        }
+        languageButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.uiLanguage === uiLanguage));
+        });
+        updateLanguageLabels();
+        if (statusKey) showStatus(statusKey, statusIsError);
+      }
+
+      function setUiLanguage(language) {
+        uiLanguage = language;
+        localStorage.setItem("uiLanguage", uiLanguage);
+        updateUi();
+      }
+
+      languageButtons.forEach((button) => {
+        button.addEventListener("click", () => setUiLanguage(button.dataset.uiLanguage));
+      });
+
       if (!SpeechRecognition) {
-        listenButton.disabled = true;
-        listenButton.title = "このブラウザは音声認識に対応していません";
+        recognition = null;
       } else {
         recognition = new SpeechRecognition();
         recognition.interimResults = true;
         recognition.continuous = false;
         recognition.onstart = () => {
-          listenButton.textContent = "認識中…";
-          listenButton.disabled = true;
-          status.textContent = "話してください。音声をテキストに変換します。";
-          status.classList.remove("error");
+          recognitionActive = true;
+          updateUi();
+          showStatus("listeningPrompt");
         };
         recognition.onresult = (event) => {
           const transcript = Array.from(event.results)
@@ -383,30 +562,17 @@
           count.textContent = `${source.value.length} / 5000`;
         };
         recognition.onerror = (event) => {
-          const message = event.error === "not-allowed"
-            ? "マイクの使用が許可されていません。ブラウザの設定をご確認ください。"
-            : "音声を認識できませんでした。もう一度お試しください。";
-          status.textContent = message;
-          status.classList.add("error");
+          showStatus(
+            event.error === "not-allowed" || event.error === "service-not-allowed"
+              ? "microphoneDenied"
+              : "recognitionFailed",
+            true,
+          );
         };
         recognition.onend = () => {
-          listenButton.textContent = "音声入力";
-          listenButton.disabled = false;
+          recognitionActive = false;
+          updateUi();
         };
-      }
-
-      function updateLanguageLabels() {
-        const sourceLanguage = languages[sourceCode];
-        const targetLanguage = languages[sourceCode === "ja" ? "vi" : "ja"];
-        sourceLanguageLabel.textContent = sourceLanguage.label;
-        sourceHeading.textContent = sourceLanguage.label;
-        targetLanguageLabel.textContent = targetLanguage.label;
-        targetHeading.textContent = targetLanguage.label;
-        eyebrow.textContent = `${sourceLanguage.english} → ${targetLanguage.english}`;
-        source.placeholder = `翻訳したい${sourceLanguage.label}の文章を入力してください`;
-        if (recognition) recognition.lang = sourceLanguage.locale;
-        speakButton.title = `${targetLanguage.label}の翻訳結果を読み上げる`;
-        speakButton.setAttribute("aria-label", `${targetLanguage.label}の翻訳結果を読み上げる`);
       }
 
       source.addEventListener("input", () => {
@@ -416,16 +582,13 @@
       swapButton.addEventListener("click", () => {
         const previousResult = result.textContent;
         const hadResult = !result.classList.contains("placeholder");
-        result.textContent = source.value.trim() || placeholder;
+        result.textContent = source.value.trim() || copy[uiLanguage].resultPlaceholder;
         result.classList.toggle("placeholder", !source.value.trim());
         source.value = hadResult ? previousResult : "";
         count.textContent = `${source.value.length} / 5000`;
         sourceCode = sourceCode === "ja" ? "vi" : "ja";
-        updateLanguageLabels();
-        copyButton.disabled = result.classList.contains("placeholder");
-        speakButton.disabled = result.classList.contains("placeholder");
-        status.textContent = "";
-        status.classList.remove("error");
+        updateUi();
+        showStatus();
       });
 
       listenButton.addEventListener("click", () => {
@@ -435,38 +598,34 @@
         try {
           recognition.start();
         } catch {
-          status.textContent = "音声認識を開始できません。少し待ってから再度お試しください。";
-          status.classList.add("error");
+          showStatus("recognitionStartFailed", true);
         }
       });
 
       speakButton.addEventListener("click", () => {
         if (!("speechSynthesis" in window)) {
-          status.textContent = "このブラウザは音声読み上げに対応していません。";
-          status.classList.add("error");
+          showStatus("speechUnsupported", true);
           return;
         }
         const utterance = new SpeechSynthesisUtterance(result.textContent);
         utterance.lang = languages[sourceCode === "ja" ? "vi" : "ja"].locale;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
-        status.textContent = "翻訳結果を読み上げています。";
-        status.classList.remove("error");
+        showStatus("speechPlaying");
       });
 
       translateButton.addEventListener("click", async () => {
         const text = source.value.trim();
         if (!text) {
-          status.textContent = "翻訳する文章を入力してください。";
-          status.classList.add("error");
+          showStatus("emptyInput", true);
           source.focus();
           return;
         }
 
+        isTranslating = true;
         translateButton.disabled = true;
-        translateButton.textContent = "翻訳中…";
-        status.textContent = "";
-        status.classList.remove("error");
+        updateUi();
+        showStatus();
         copyButton.disabled = true;
 
         try {
@@ -478,49 +637,45 @@
             `https://api.mymemory.translated.net/get?${params}`,
           );
           if (!response.ok) {
-            throw new Error("翻訳サービスに接続できませんでした。");
+            throw new Error("translationConnectionFailed");
           }
 
           const data = await response.json();
           if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
-            throw new Error(
-              data.responseDetails || "翻訳できませんでした。時間をおいて再度お試しください。",
-            );
+            throw new Error("translationFailed");
           }
 
           result.textContent = data.responseData.translatedText;
           result.classList.remove("placeholder");
           copyButton.disabled = false;
           speakButton.disabled = false;
-          status.textContent = "翻訳しました。";
-          status.classList.remove("error");
+          showStatus("translated");
         } catch (error) {
-          status.textContent =
-            error instanceof Error
-              ? error.message
-              : "翻訳中に問題が発生しました。";
-          status.classList.add("error");
-          if (result.textContent === placeholder) {
+          const errorKey = error instanceof Error &&
+            ["translationConnectionFailed", "translationFailed"].includes(error.message)
+            ? error.message
+            : "translationProblem";
+          showStatus(errorKey, true);
+          if (result.classList.contains("placeholder")) {
             result.classList.add("placeholder");
           }
         } finally {
+          isTranslating = false;
           translateButton.disabled = false;
-          translateButton.textContent = "翻訳する";
+          updateUi();
         }
       });
-
-      updateLanguageLabels();
 
       copyButton.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(result.textContent);
-          status.textContent = "翻訳結果をコピーしました。";
-          status.classList.remove("error");
+          showStatus("copied");
         } catch {
-          status.textContent = "コピーできませんでした。結果を選択してコピーしてください。";
-          status.classList.add("error");
+          showStatus("copyFailed", true);
         }
       });
+
+      updateUi();
     </script>
   </body>
 </html>
