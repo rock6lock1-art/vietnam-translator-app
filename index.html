@@ -101,7 +101,8 @@
 
       .swap-button,
       .tool-button,
-      .copy-button {
+      .copy-button,
+      .secondary-button {
         min-height: 34px;
         padding: 0 10px;
         border: 1px solid #dce6e0;
@@ -112,7 +113,8 @@
 
       .swap-button:hover:not(:disabled),
       .tool-button:hover:not(:disabled),
-      .copy-button:hover:not(:disabled) {
+      .copy-button:hover:not(:disabled),
+      .secondary-button:hover:not(:disabled) {
         background: #f1f6f3;
       }
 
@@ -176,6 +178,12 @@
         border-top: 1px solid #edf1ee;
       }
 
+      .actions-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .hint {
         color: #73817d;
         font-size: 0.78rem;
@@ -204,6 +212,14 @@
         background: white;
         color: #354d47;
         font-size: 0.78rem;
+      }
+
+      .secondary-button {
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid #dce6e0;
+        background: #eef5f1;
+        color: #22473d;
       }
 
       .status {
@@ -244,7 +260,11 @@
           flex-direction: column;
           padding: 16px 20px;
         }
-        .actions button { width: 100%; }
+        .actions-actions {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .actions button { width: auto; }
       }
     </style>
   </head>
@@ -294,7 +314,10 @@
 
         <div class="actions">
           <span class="hint">短い文章からお試しください</span>
-          <button id="translate" type="button">翻訳する</button>
+          <div class="actions-actions">
+            <button class="secondary-button" id="clear" type="button">クリア</button>
+            <button id="translate" type="button">翻訳する</button>
+          </div>
         </div>
       </section>
 
@@ -310,6 +333,7 @@
         result: document.querySelector('#result'),
         count: document.querySelector('#count'),
         translate: document.querySelector('#translate'),
+        clear: document.querySelector('#clear'),
         copy: document.querySelector('#copy'),
         swap: document.querySelector('#swap'),
         listen: document.querySelector('#listen'),
@@ -336,7 +360,7 @@
           appTitle: 'ことばの橋',
           pageTitle: 'ことばの橋 | 日本語・ベトナム語翻訳',
           description: '日本語とベトナム語を翻訳するアプリです。',
-          intro: '日本語とベトナム語を翻訳します。',
+          intro: '日本語とベトナム��を翻訳します。',
           translator: '翻訳',
           languagePair: '翻訳する言語',
           uiLanguage: '表示言語',
@@ -367,6 +391,7 @@
           translated: '翻訳しました。',
           copied: '翻訳結果をコピーしました。',
           copyFailed: 'コピーできませんでした。結果を選択してコピーしてください。',
+          clear: 'クリア',
         },
         vi: {
           appTitle: 'Cầu nối ngôn ngữ',
@@ -389,7 +414,7 @@
           hint: 'Hãy thử với câu ngắn',
           translate: 'Dịch',
           translating: 'Đang dịch…',
-          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc văn bản thành tiếng có thể thay đổi theo trình duyệt.',
+          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc văn bản thành tiếng tùy thuộc vào trình duyệt.',
           listeningPrompt: 'Hãy nói để chuyển giọng nói thành văn bản.',
           microphoneDenied: 'Chưa được cấp quyền sử dụng micrô. Vui lòng kiểm tra cài đặt trình duyệt.',
           recognitionFailed: 'Không nhận dạng được giọng nói. Vui lòng thử lại.',
@@ -403,6 +428,7 @@
           translated: 'Đã dịch xong.',
           copied: 'Đã sao chép bản dịch.',
           copyFailed: 'Không thể sao chép. Hãy chọn bản dịch rồi sao chép.',
+          clear: 'Xóa',
         },
       };
 
@@ -418,6 +444,7 @@
         isTranslating: false,
         statusKey: '',
         statusIsError: false,
+        autoTranslateTimer: null,
       };
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -480,6 +507,7 @@
         els.speak.title = strings.speakTitle;
         els.speak.setAttribute('aria-label', strings.speakTitle);
         els.copy.textContent = strings.copy;
+        els.clear.textContent = strings.clear;
         els.hint.textContent = strings.hint;
         els.translate.textContent = state.isTranslating ? strings.translating : strings.translate;
         els.translate.disabled = state.isTranslating;
@@ -507,19 +535,44 @@
         updateUi();
       }
 
+      function clearInput() {
+        els.source.value = '';
+        syncCount();
+        setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+        setStatus('');
+        els.source.focus();
+      }
+
+      function scheduleAutoTranslate() {
+        if (state.autoTranslateTimer) {
+          clearTimeout(state.autoTranslateTimer);
+        }
+
+        state.autoTranslateTimer = setTimeout(() => {
+          const trimmed = els.source.value.trim();
+          if (!trimmed) {
+            setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+            setStatus('');
+            return;
+          }
+          translateText({ auto: true });
+        }, 500);
+      }
+
       function handleSpeechResult(event) {
         const transcript = Array.from(event.results)
           .map((item) => item[0].transcript)
           .join('');
         els.source.value = transcript.slice(0, 5000);
         syncCount();
+        scheduleAutoTranslate();
       }
 
       function getTranslationCacheKey(text, sourceCode) {
         return `${sourceCode}|${text.trim()}`;
       }
 
-      async function translateText() {
+      async function translateText({ auto = false } = {}) {
         const text = els.source.value.trim();
         if (!text) {
           setStatus('emptyInput', true);
@@ -531,13 +584,17 @@
         const cached = translationCache.get(cacheKey);
         if (cached) {
           setResultText(cached, { placeholder: false });
-          setStatus('translated');
+          if (!auto) {
+            setStatus('translated');
+          }
           return;
         }
 
         state.isTranslating = true;
         updateUi();
-        setStatus('');
+        if (!auto) {
+          setStatus('');
+        }
 
         const requestId = ++translationRequestId;
         activeTranslationController?.abort();
@@ -577,7 +634,9 @@
 
           if (requestId === translationRequestId) {
             setResultText(translatedText, { placeholder: false });
-            setStatus('translated');
+            if (!auto) {
+              setStatus('translated');
+            }
           }
         } catch (error) {
           if (error.name === 'AbortError') {
@@ -625,7 +684,10 @@
         };
       }
 
-      els.source.addEventListener('input', syncCount);
+      els.source.addEventListener('input', () => {
+        syncCount();
+        scheduleAutoTranslate();
+      });
 
       els.swap.addEventListener('click', () => {
         const currentInput = els.source.value.trim();
@@ -668,12 +730,14 @@
         setStatus('speechPlaying');
       });
 
-      els.translate.addEventListener('click', translateText);
+      els.translate.addEventListener('click', () => translateText({ auto: false }));
+
+      els.clear.addEventListener('click', clearInput);
 
       els.source.addEventListener('keydown', (event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
           event.preventDefault();
-          translateText();
+          translateText({ auto: false });
         }
       });
 
