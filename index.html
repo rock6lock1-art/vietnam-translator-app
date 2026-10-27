@@ -326,6 +326,8 @@
         languageBar: document.querySelector('#language-bar'),
         translator: document.querySelector('#translator'),
         privacyNote: document.querySelector('#privacy-note'),
+        hint: document.querySelector('.hint'),
+        metaDescription: document.querySelector('meta[name="description"]'),
         languageButtons: [...document.querySelectorAll('[data-ui-language]')],
       };
 
@@ -364,7 +366,7 @@
           translationProblem: '翻訳中に問題が発生しました。',
           translated: '翻訳しました。',
           copied: '翻訳結果をコピーしました。',
-          copyFailed: 'コピーで���ませんでした。結果を選択してコピーしてください。',
+          copyFailed: 'コピーできませんでした。結果を選択してコピーしてください。',
         },
         vi: {
           appTitle: 'Cầu nối ngôn ngữ',
@@ -387,7 +389,7 @@
           hint: 'Hãy thử với câu ngắn',
           translate: 'Dịch',
           translating: 'Đang dịch…',
-          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc văn bản thành tiếng phụ thuộc vào trình duyệt.',
+          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc văn bản thành tiếng có thể thay đổi theo trình duyệt.',
           listeningPrompt: 'Hãy nói để chuyển giọng nói thành văn bản.',
           microphoneDenied: 'Chưa được cấp quyền sử dụng micrô. Vui lòng kiểm tra cài đặt trình duyệt.',
           recognitionFailed: 'Không nhận dạng được giọng nói. Vui lòng thử lại.',
@@ -425,6 +427,10 @@
       let activeTranslationController = null;
       let translationRequestId = 0;
 
+      function getTargetCode() {
+        return state.sourceCode === 'ja' ? 'vi' : 'ja';
+      }
+
       function setStatus(key = '', isError = false) {
         state.statusKey = key;
         state.statusIsError = isError;
@@ -436,9 +442,15 @@
         els.count.textContent = `${els.source.value.length} / 5000`;
       }
 
+      function setResultText(value, { placeholder = false } = {}) {
+        els.result.textContent = value;
+        els.result.classList.toggle('placeholder', placeholder);
+      }
+
       function updateLanguageLabels() {
         const sourceLabel = languages[state.sourceCode].label[state.uiLanguage];
-        const targetLabel = languages[state.sourceCode === 'ja' ? 'vi' : 'ja'].label[state.uiLanguage];
+        const targetCode = getTargetCode();
+        const targetLabel = languages[targetCode].label[state.uiLanguage];
         els.sourceLanguage.textContent = sourceLabel;
         els.sourceHeading.textContent = sourceLabel;
         els.targetLanguage.textContent = targetLabel;
@@ -452,7 +464,7 @@
         const strings = copy[state.uiLanguage];
         document.documentElement.lang = state.uiLanguage;
         document.title = strings.pageTitle;
-        document.querySelector('meta[name="description"]').content = strings.description;
+        els.metaDescription.content = strings.description;
         els.appTitle.textContent = strings.appTitle;
         els.intro.textContent = strings.intro;
         els.translator.setAttribute('aria-label', strings.translator);
@@ -468,7 +480,6 @@
         els.speak.title = strings.speakTitle;
         els.speak.setAttribute('aria-label', strings.speakTitle);
         els.copy.textContent = strings.copy;
-        els.hint = document.querySelector('.hint');
         els.hint.textContent = strings.hint;
         els.translate.textContent = state.isTranslating ? strings.translating : strings.translate;
         els.translate.disabled = state.isTranslating;
@@ -479,7 +490,7 @@
         els.copy.disabled = !hasResult;
 
         if (els.result.classList.contains('placeholder')) {
-          els.result.textContent = strings.resultPlaceholder;
+          setResultText(strings.resultPlaceholder, { placeholder: true });
         }
 
         els.languageButtons.forEach((button) => {
@@ -519,8 +530,7 @@
         const cacheKey = getTranslationCacheKey(text, state.sourceCode);
         const cached = translationCache.get(cacheKey);
         if (cached) {
-          els.result.textContent = cached;
-          els.result.classList.remove('placeholder');
+          setResultText(cached, { placeholder: false });
           setStatus('translated');
           return;
         }
@@ -535,9 +545,10 @@
         activeTranslationController = controller;
 
         try {
+          const targetCode = getTargetCode();
           const params = new URLSearchParams({
             q: text,
-            langpair: `${state.sourceCode}|${state.sourceCode === 'ja' ? 'vi' : 'ja'}`,
+            langpair: `${state.sourceCode}|${targetCode}`,
           });
           const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
             signal: controller.signal,
@@ -565,8 +576,7 @@
           translationCache.set(cacheKey, translatedText);
 
           if (requestId === translationRequestId) {
-            els.result.textContent = translatedText;
-            els.result.classList.remove('placeholder');
+            setResultText(translatedText, { placeholder: false });
             setStatus('translated');
           }
         } catch (error) {
@@ -579,7 +589,7 @@
             : 'translationProblem';
           setStatus(key, true);
           if (els.result.classList.contains('placeholder')) {
-            els.result.classList.add('placeholder');
+            setResultText('', { placeholder: true });
           }
         } finally {
           if (requestId === translationRequestId) {
@@ -625,12 +635,10 @@
 
         if (currentInput) {
           els.source.value = currentOutput || '';
-          els.result.textContent = currentInput;
-          els.result.classList.remove('placeholder');
+          setResultText(currentInput, { placeholder: false });
         } else {
           els.source.value = currentOutput || '';
-          els.result.textContent = copy[state.uiLanguage].resultPlaceholder;
-          els.result.classList.add('placeholder');
+          setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
         }
 
         syncCount();
@@ -654,7 +662,7 @@
           return;
         }
         const utterance = new SpeechSynthesisUtterance(els.result.textContent);
-        utterance.lang = languages[state.sourceCode === 'ja' ? 'vi' : 'ja'].locale;
+        utterance.lang = languages[getTargetCode()].locale;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
         setStatus('speechPlaying');
