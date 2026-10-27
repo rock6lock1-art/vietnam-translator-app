@@ -364,7 +364,7 @@
           translationProblem: '翻訳中に問題が発生しました。',
           translated: '翻訳しました。',
           copied: '翻訳結果をコピーしました。',
-          copyFailed: 'コピーできませんでした。結果を選択してコピーしてください。',
+          copyFailed: 'コピーで���ませんでした。結果を選択してコピーしてください。',
         },
         vi: {
           appTitle: 'Cầu nối ngôn ngữ',
@@ -387,7 +387,7 @@
           hint: 'Hãy thử với câu ngắn',
           translate: 'Dịch',
           translating: 'Đang dịch…',
-          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc thành tiếng phụ thuộc vào trình duyệt.',
+          privacy: 'Ứng dụng sử dụng MyMemory để dịch. Văn bản bạn nhập sẽ được gửi đến dịch vụ bên ngoài. Khả năng nhận dạng giọng nói và đọc văn bản thành tiếng phụ thuộc vào trình duyệt.',
           listeningPrompt: 'Hãy nói để chuyển giọng nói thành văn bản.',
           microphoneDenied: 'Chưa được cấp quyền sử dụng micrô. Vui lòng kiểm tra cài đặt trình duyệt.',
           recognitionFailed: 'Không nhận dạng được giọng nói. Vui lòng thử lại.',
@@ -420,6 +420,10 @@
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       let recognition = null;
+      const translationCache = new Map();
+      const MAX_TRANSLATION_CACHE = 200;
+      let activeTranslationController = null;
+      let translationRequestId = 0;
 
       function setStatus(key = '', isError = false) {
         state.statusKey = key;
@@ -500,6 +504,91 @@
         syncCount();
       }
 
+      function getTranslationCacheKey(text, sourceCode) {
+        return `${sourceCode}|${text.trim()}`;
+      }
+
+      async function translateText() {
+        const text = els.source.value.trim();
+        if (!text) {
+          setStatus('emptyInput', true);
+          els.source.focus();
+          return;
+        }
+
+        const cacheKey = getTranslationCacheKey(text, state.sourceCode);
+        const cached = translationCache.get(cacheKey);
+        if (cached) {
+          els.result.textContent = cached;
+          els.result.classList.remove('placeholder');
+          setStatus('translated');
+          return;
+        }
+
+        state.isTranslating = true;
+        updateUi();
+        setStatus('');
+
+        const requestId = ++translationRequestId;
+        activeTranslationController?.abort();
+        const controller = new AbortController();
+        activeTranslationController = controller;
+
+        try {
+          const params = new URLSearchParams({
+            q: text,
+            langpair: `${state.sourceCode}|${state.sourceCode === 'ja' ? 'vi' : 'ja'}`,
+          });
+          const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
+            signal: controller.signal,
+            headers: {
+              Accept: 'application/json',
+            },
+          });
+
+          if (!response.ok) throw new Error('translationConnectionFailed');
+
+          const data = await response.json();
+          if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
+            throw new Error('translationFailed');
+          }
+
+          const translatedText = data.responseData.translatedText;
+
+          if (translationCache.size >= MAX_TRANSLATION_CACHE) {
+            const firstKey = translationCache.keys().next().value;
+            if (firstKey !== undefined) {
+              translationCache.delete(firstKey);
+            }
+          }
+
+          translationCache.set(cacheKey, translatedText);
+
+          if (requestId === translationRequestId) {
+            els.result.textContent = translatedText;
+            els.result.classList.remove('placeholder');
+            setStatus('translated');
+          }
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            return;
+          }
+
+          const key = error instanceof Error && ['translationConnectionFailed', 'translationFailed'].includes(error.message)
+            ? error.message
+            : 'translationProblem';
+          setStatus(key, true);
+          if (els.result.classList.contains('placeholder')) {
+            els.result.classList.add('placeholder');
+          }
+        } finally {
+          if (requestId === translationRequestId) {
+            state.isTranslating = false;
+            updateUi();
+          }
+        }
+      }
+
       if (!SpeechRecognition) {
         recognition = null;
       } else {
@@ -571,45 +660,12 @@
         setStatus('speechPlaying');
       });
 
-      els.translate.addEventListener('click', async () => {
-        const text = els.source.value.trim();
-        if (!text) {
-          setStatus('emptyInput', true);
-          els.source.focus();
-          return;
-        }
+      els.translate.addEventListener('click', translateText);
 
-        state.isTranslating = true;
-        updateUi();
-        setStatus('');
-
-        try {
-          const params = new URLSearchParams({
-            q: text,
-            langpair: `${state.sourceCode}|${state.sourceCode === 'ja' ? 'vi' : 'ja'}`,
-          });
-          const response = await fetch(`https://api.mymemory.translated.net/get?${params}`);
-          if (!response.ok) throw new Error('translationConnectionFailed');
-
-          const data = await response.json();
-          if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
-            throw new Error('translationFailed');
-          }
-
-          els.result.textContent = data.responseData.translatedText;
-          els.result.classList.remove('placeholder');
-          setStatus('translated');
-        } catch (error) {
-          const key = error instanceof Error && ['translationConnectionFailed', 'translationFailed'].includes(error.message)
-            ? error.message
-            : 'translationProblem';
-          setStatus(key, true);
-          if (els.result.classList.contains('placeholder')) {
-            els.result.classList.add('placeholder');
-          }
-        } finally {
-          state.isTranslating = false;
-          updateUi();
+      els.source.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          translateText();
         }
       });
 
