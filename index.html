@@ -205,19 +205,15 @@
       button:hover:not(:disabled) { background: #106650; }
       button:disabled { cursor: wait; opacity: 0.65; }
 
-      .copy-button {
+      .copy-button,
+      .secondary-button {
         min-height: 32px;
         padding: 0 10px;
-        border: 1px solid #dce6e0;
-        background: white;
-        color: #354d47;
-        font-size: 0.78rem;
       }
 
       .secondary-button {
         min-height: 38px;
         padding: 0 14px;
-        border: 1px solid #dce6e0;
         background: #eef5f1;
         color: #22473d;
       }
@@ -360,7 +356,7 @@
           appTitle: 'ことばの橋',
           pageTitle: 'ことばの橋 | 日本語・ベトナム語翻訳',
           description: '日本語とベトナム語を翻訳するアプリです。',
-          intro: '日本語とベトナム��を翻訳します。',
+          intro: '日本語とベトナム語を翻訳します。',
           translator: '翻訳',
           languagePair: '翻訳する言語',
           uiLanguage: '表示言語',
@@ -474,21 +470,30 @@
         els.result.classList.toggle('placeholder', placeholder);
       }
 
+      function resetResultPlaceholder() {
+        setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+      }
+
       function updateLanguageLabels() {
         const sourceLabel = languages[state.sourceCode].label[state.uiLanguage];
         const targetCode = getTargetCode();
         const targetLabel = languages[targetCode].label[state.uiLanguage];
+
         els.sourceLanguage.textContent = sourceLabel;
         els.sourceHeading.textContent = sourceLabel;
         els.targetLanguage.textContent = targetLabel;
         els.targetHeading.textContent = targetLabel;
         els.eyebrow.textContent = `${sourceLabel} → ${targetLabel}`;
         els.source.placeholder = copy[state.uiLanguage].sourcePlaceholder.replace('{language}', sourceLabel);
-        if (recognition) recognition.lang = languages[state.sourceCode].locale;
+
+        if (recognition) {
+          recognition.lang = languages[state.sourceCode].locale;
+        }
       }
 
       function updateUi() {
         const strings = copy[state.uiLanguage];
+
         document.documentElement.lang = state.uiLanguage;
         document.title = strings.pageTitle;
         els.metaDescription.content = strings.description;
@@ -526,7 +531,9 @@
         });
 
         updateLanguageLabels();
-        if (state.statusKey) setStatus(state.statusKey, state.statusIsError);
+        if (state.statusKey) {
+          setStatus(state.statusKey, state.statusIsError);
+        }
       }
 
       function setUiLanguage(language) {
@@ -538,7 +545,7 @@
       function clearInput() {
         els.source.value = '';
         syncCount();
-        setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+        resetResultPlaceholder();
         setStatus('');
         els.source.focus();
       }
@@ -550,11 +557,13 @@
 
         state.autoTranslateTimer = setTimeout(() => {
           const trimmed = els.source.value.trim();
+
           if (!trimmed) {
-            setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+            resetResultPlaceholder();
             setStatus('');
             return;
           }
+
           translateText({ auto: true });
         }, 500);
       }
@@ -563,6 +572,7 @@
         const transcript = Array.from(event.results)
           .map((item) => item[0].transcript)
           .join('');
+
         els.source.value = transcript.slice(0, 5000);
         syncCount();
         scheduleAutoTranslate();
@@ -574,6 +584,7 @@
 
       async function translateText({ auto = false } = {}) {
         const text = els.source.value.trim();
+
         if (!text) {
           setStatus('emptyInput', true);
           els.source.focus();
@@ -582,6 +593,7 @@
 
         const cacheKey = getTranslationCacheKey(text, state.sourceCode);
         const cached = translationCache.get(cacheKey);
+
         if (cached) {
           setResultText(cached, { placeholder: false });
           if (!auto) {
@@ -607,14 +619,15 @@
             q: text,
             langpair: `${state.sourceCode}|${targetCode}`,
           });
+
           const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
             signal: controller.signal,
-            headers: {
-              Accept: 'application/json',
-            },
+            headers: { Accept: 'application/json' },
           });
 
-          if (!response.ok) throw new Error('translationConnectionFailed');
+          if (!response.ok) {
+            throw new Error('translationConnectionFailed');
+          }
 
           const data = await response.json();
           if (data.responseStatus !== 200 || !data.responseData?.translatedText) {
@@ -646,6 +659,7 @@
           const key = error instanceof Error && ['translationConnectionFailed', 'translationFailed'].includes(error.message)
             ? error.message
             : 'translationProblem';
+
           setStatus(key, true);
           if (els.result.classList.contains('placeholder')) {
             setResultText('', { placeholder: true });
@@ -700,7 +714,7 @@
           setResultText(currentInput, { placeholder: false });
         } else {
           els.source.value = currentOutput || '';
-          setResultText(copy[state.uiLanguage].resultPlaceholder, { placeholder: true });
+          resetResultPlaceholder();
         }
 
         syncCount();
@@ -709,7 +723,10 @@
       });
 
       els.listen.addEventListener('click', () => {
-        if (!recognition) return;
+        if (!recognition) {
+          return;
+        }
+
         recognition.lang = languages[state.sourceCode].locale;
         try {
           recognition.start();
@@ -723,6 +740,7 @@
           setStatus('speechUnsupported', true);
           return;
         }
+
         const utterance = new SpeechSynthesisUtterance(els.result.textContent);
         utterance.lang = languages[getTargetCode()].locale;
         window.speechSynthesis.cancel();
@@ -731,7 +749,6 @@
       });
 
       els.translate.addEventListener('click', () => translateText({ auto: false }));
-
       els.clear.addEventListener('click', clearInput);
 
       els.source.addEventListener('keydown', (event) => {
